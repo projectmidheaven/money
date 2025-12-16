@@ -4,6 +4,8 @@ import org.midheaven.collections.Association;
 import org.midheaven.collections.DistinctAssortment;
 import org.midheaven.collections.Enumerator;
 import org.midheaven.collections.ResizableAssociation;
+import org.midheaven.math.AdditionGroup;
+import org.midheaven.math.AdditionMonoid;
 import org.midheaven.math.Rational;
 
 import java.util.function.BiFunction;
@@ -33,9 +35,9 @@ final class AssociationMultiCurrencyMoneyAmount implements  MultiCurrencyMonetar
 
     private MultiCurrencyMonetaryAmount singleCalculate(MonetaryAmount monetaryAmount, BiFunction<MonetaryAmount, MonetaryAmount, MonetaryAmount> op){
         var newBag  = Association.builder().resizable().from(bag);
-
-        newBag.computeValue(monetaryAmount.currency(), (c, value ) -> op.apply(value, monetaryAmount));
-
+        
+        newBag.computeValue(monetaryAmount.currency(), monetaryAmount.currency().zero(), (k,a) -> op.apply(a, monetaryAmount));
+       
         return new AssociationMultiCurrencyMoneyAmount(newBag);
     }
 
@@ -78,13 +80,10 @@ final class AssociationMultiCurrencyMoneyAmount implements  MultiCurrencyMonetar
     }
 
     private MultiCurrencyMonetaryAmount calculate(MultiCurrencyMonetaryAmount monetaryAmounts, BiFunction<MonetaryAmount, MonetaryAmount, MonetaryAmount> op){
-        if (monetaryAmounts instanceof AssociationMultiCurrencyMoneyAmount amounts){
-            return new AssociationMultiCurrencyMoneyAmount( this.bag.union(amounts.bag, op));
-        }
 
-        var newBag  = Association.builder().resizable().from(bag);
-        for (var amount : monetaryAmounts){
-            newBag.computeValue(amount.currency(), (c, value) -> op.apply(value, amount));
+        var newBag  = Association.builder().resizable().from(bag); // copy
+        for (var newAmount : monetaryAmounts){
+            newBag.computeValue(newAmount.currency(),newAmount.currency().zero(), (c, a) -> op.apply(a, newAmount));
         }
         return new AssociationMultiCurrencyMoneyAmount(newBag);
     }
@@ -96,30 +95,31 @@ final class AssociationMultiCurrencyMoneyAmount implements  MultiCurrencyMonetar
 
     @Override
     public MultiCurrencyMonetaryAmount negate() {
-        return operate(amount -> amount.negate());
+        return operate(AdditionGroup::negate);
     }
 
     private MultiCurrencyMonetaryAmount operate(Function<MonetaryAmount, MonetaryAmount> op){
-        var newBag  = Association.builder().resizable().from(bag);
-        for (var amount : newBag){
-            newBag.computeValue(amount.key(), (c, value) -> op.apply(value));
+        ResizableAssociation<Currency, MonetaryAmount> newBag  = Association.builder().resizable().empty();
+        
+        for (var entry : bag){
+            newBag.putValue(entry.key(), op.apply(entry.value()));
         }
         return new AssociationMultiCurrencyMoneyAmount(newBag);
     }
 
     @Override
     public MultiCurrencyMonetaryAmount abs() {
-        return operate(amount -> amount.abs());
+        return operate(AdditionGroup::abs);
     }
 
     @Override
     public boolean isZero() {
-        return bag.isEmpty() || bag.values().allMatch(it -> it.isZero());
+        return bag.isEmpty() || bag.values().allMatch(AdditionMonoid::isZero);
     }
 
     @Override
     public boolean equals(Object other){
-        if (other instanceof MultiCurrencyMonetaryAmount that && this.bag.count() == that.count()){
+        if (other instanceof MultiCurrencyMonetaryAmount that && this.bag.count().equals(that.count())){
             for (var amount : that){
                 if (!this.bag.values().contains(amount)){
                     return false;
@@ -141,7 +141,10 @@ final class AssociationMultiCurrencyMoneyAmount implements  MultiCurrencyMonetar
         for (var amount : this){
             builder.append(amount).append("+");
         }
-        builder.delete(builder.length()- 1, builder.length());
+        if (!builder.isEmpty()){
+            builder.delete(builder.length()- 1, builder.length());
+        }
+        
         return builder.toString();
     }
 }

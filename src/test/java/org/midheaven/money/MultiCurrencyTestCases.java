@@ -51,21 +51,25 @@ public class MultiCurrencyTestCases {
 
     @Test
     public void multiCurrencyScale(){
+        var EUR = Currency.parse("EUR");
+        var JPY = Currency.parse("JPY");
+        var USD = Currency.parse("USD");
+        
         var value = MultiCurrencyMonetaryAmount.zero();
-        var a = value.plus(Currency.parse("EUR").of(100))
-                .plus(Currency.parse("USD").of(100))
-                .plus(Currency.parse("JPY").of(90));
-
+        var a = value.plus(EUR.of(100))
+                .plus(USD.of(100))
+                .plus(JPY.of(90));
+        
         var c = a.times(2);
 
-        var expected = value.plus(Currency.parse("EUR").of(200))
-                .plus(Currency.parse("JPY").of(180))
-                .plus(Currency.parse("USD").of(200));
+        var expected = value.plus(EUR.of(200))
+                .plus(JPY.of(180))
+                .plus(USD.of(200));
 
 
         assertEquals(expected, c);
 
-        assertEquals(Currency.parse("JPY").of(180), c.getAmount(Currency.parse("JPY")));
+        assertEquals(JPY.of(180), c.getAmount(JPY));
     }
 
     @Test
